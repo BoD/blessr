@@ -1,0 +1,38 @@
+name: build
+
+on:
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v6
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: 17
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Build with Gradle
+        run: >
+          ./gradlew --no-configuration-cache
+          check
+          installJvmDist
+
+      - name: Archive JVM binary
+        uses: actions/upload-artifact@v6
+        with:
+          path: cliApp/build/distributions/cliApp-1.0.0-jvm.zip
+          name: cliApp-1.0.0-jvm

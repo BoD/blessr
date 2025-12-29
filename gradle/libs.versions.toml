@@ -1,0 +1,20 @@
+[plugins]
+
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+
+[versions]
+
+kotlin = "2.3.0"
+kotlinx-coroutines = "1.10.2"
+kotlinx-serialization = "1.9.0"
+
+[libraries]
+
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kable-core = { module = "com.juul.kable:kable-core", version = "0.41.0" }
+klibnanolog = { module = "org.jraf.klibnanolog:klibnanolog", version = "1.0.1" }
+klibfitbit = { module = "org.jraf.klibfitbit:klibfitbit", version = "1.0.0" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version = "0.7.1" }
+clikt = { module = "com.github.ajalt.clikt:clikt", version = "5.0.3" }

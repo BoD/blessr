@@ -8,5 +8,5 @@ allprojects {
 }
 
 // `./gradlew refreshVersions` to update dependencies
-// `./gradlew jvmDistZip` to create a ZIP file containing the CLI application (results in `cliApp/build/distributions/cliApp-<version>-jvm.zip`)
 // `./gradlew installJvmDist` to install the CLI application (results in `cliApp/build/install/cliApp-jvm/bin/cliApp`)
+// `./gradlew jvmDistZip` to create a ZIP file containing the CLI application (results in `cliApp/build/distributions/cliApp-<version>-jvm.zip`)

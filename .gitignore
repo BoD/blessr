@@ -8,3 +8,4 @@ out
 !.idea/codeStyles
 .kotlin
 go.sh
+versions.properties

@@ -10,6 +10,7 @@ pluginManagement {
 @Suppress("UnstableApiUsage")
 dependencyResolutionManagement {
   repositories {
+    mavenLocal()
     mavenCentral()
   }
 }

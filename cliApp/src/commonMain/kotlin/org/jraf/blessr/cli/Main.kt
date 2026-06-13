@@ -25,7 +25,6 @@
 
 package org.jraf.blessr.cli
 
-import com.github.ajalt.clikt.core.main
 import org.jraf.blessr.cli.arguments.Arguments
 import org.jraf.blessr.engine.Blessr
 import org.jraf.klibnanolog.LogLevel
@@ -55,11 +54,4 @@ class Main {
       authorizationUrl
     }.run()
   }
-}
-
-suspend fun main(av: Array<String>) {
-  val arguments = Arguments()
-  arguments.main(av)
-
-  Main().run(arguments)
 }

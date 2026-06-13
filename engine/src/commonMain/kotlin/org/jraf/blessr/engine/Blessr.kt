@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
 import org.jraf.blessr.repository.Repository
+import org.jraf.blessr.util.resilientFlow
 import org.jraf.klibnanolog.logd
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -63,11 +64,15 @@ class Blessr(
     println("Distance: -- km. Duration: --. Speed: -- km/h. Total distance: 0 km. Total duration: 0m.")
     while (true) {
       logd("Scanning for $deviceName device...")
-      val advertisement = Scanner {
-        logging {
-          engine = NanoLogEngine()
-        }
-      }.advertisements.first { it.name?.contains(deviceName, ignoreCase = true) == true }
+      // See https://github.com/JuulLabs/kable/issues/1152
+      val advertisement = resilientFlow(30.seconds) {
+        logd("Re-starting Scanner")
+        Scanner {
+          logging {
+            engine = NanoLogEngine()
+          }
+        }.advertisements
+      }.first { it.name?.contains(deviceName, ignoreCase = true) == true }
       logd("Found $deviceName device: ${advertisement.identifier}")
 
       // Get today's daily values
@@ -90,9 +95,12 @@ class Blessr(
       peripheral.connect().launch {
         logd("Connected to peripheral: ${peripheral.identifier}")
         val services = peripheral.services.first { it != null }!!
+        logd("services=$services")
         val characteristic = services.first { it.serviceUuid == Bluetooth.BaseUuid + GATT_SERVICE_CYCLING_SPEED_AND_CADENCE }
           .characteristics.first { it.characteristicUuid == Bluetooth.BaseUuid + GATT_CHARACTERISTIC_CYCLING_SPEED_AND_CADENCE_MEASUREMENT }
+        logd("characteristic=$characteristic")
         peripheral.observe(characteristic).collect { byteArray ->
+          logd(byteArray.size.toString())
           val receivedWheelRevolutions = byteArray[1].toUByte().toInt() or
             (byteArray[2].toUByte().toInt() shl 8) or
             (byteArray[3].toUByte().toInt() shl 16) or
@@ -103,15 +111,15 @@ class Blessr(
 
           wheelRevolutionsCounter += receivedWheelRevolutions
           val distanceKilometers = wheelRevolutionsCounter.distanceKilometers
-          val formattedDistance = String.format("%.2f", distanceKilometers)
+          val formattedDistance = distanceKilometers.formatted(2)
 
           val duration = wheelRevolutionsCounter.duration
           val formattedDuration = duration.formatted()
 
-          val formattedSpeed = String.format("%.1f", wheelRevolutionsCounter.speedKilometersPerHour)
+          val formattedSpeed = wheelRevolutionsCounter.speedKilometersPerHour.formatted(1)
 
           val totalDistanceKilometers = dailyValues.distanceKilometers + distanceKilometers
-          val formattedTotalDistance = String.format("%.1f", totalDistanceKilometers)
+          val formattedTotalDistance = totalDistanceKilometers.formatted(1)
 
           val totalDuration = dailyValues.duration + duration
           val formattedTotalDuration = totalDuration.formatted()
@@ -142,7 +150,7 @@ class Blessr(
       )
 
       val totalDistanceKilometers = dailyValues.distanceKilometers + wheelRevolutionsCounter.distanceKilometers
-      val formattedTotalDistance = String.format("%.1f", totalDistanceKilometers)
+      val formattedTotalDistance = totalDistanceKilometers.formatted(1)
 
       val totalDuration = dailyValues.duration + wheelRevolutionsCounter.duration
       val formattedTotalDuration = totalDuration.formatted()
@@ -162,4 +170,10 @@ private fun Duration.formatted(): String {
     return "${hours}h"
   }
   return "${hours}h ${minutes}m"
+}
+
+private fun Double.formatted(fractionDigits: Int): String {
+  val parts = toString().split('.', limit = 2)
+  val fraction = parts.getOrElse(1) { "" }.take(fractionDigits).padEnd(fractionDigits, '0')
+  return "${parts[0]}.$fraction"
 }

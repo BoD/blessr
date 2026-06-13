@@ -31,8 +31,15 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atTime
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.io.files.Path
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import org.jraf.blessr.util.createDirectories
+import org.jraf.blessr.util.delete
+import org.jraf.blessr.util.exists
+import org.jraf.blessr.util.getHomePath
+import org.jraf.blessr.util.readString
+import org.jraf.blessr.util.writeString
 import org.jraf.klibfitbit.client.FitbitClient
 import org.jraf.klibfitbit.client.configuration.ClientConfiguration
 import org.jraf.klibfitbit.client.configuration.HttpConfiguration
@@ -41,7 +48,6 @@ import org.jraf.klibfitbit.client.configuration.OAuthTokens
 import org.jraf.klibfitbit.model.ActivityType
 import org.jraf.klibfitbit.model.OAuthAuthorizationUrlResult
 import org.jraf.klibnanolog.logd
-import java.io.File
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
@@ -50,12 +56,12 @@ import kotlin.time.Instant
 class Repository(
   private val fitbitClientId: String,
 ) {
-  private val currentWalkFile = File("${System.getProperty("user.home")}/.blessr/current-walk.json")
-  private val fitbitCredentialsFile = File("${System.getProperty("user.home")}/.blessr/fitbit-credentials.json")
+  private val currentWalkPath = Path(getHomePath(), ".blessr", "current-walk.json")
+  private val fitbitCredentialsPath = Path(getHomePath(), ".blessr", "fitbit-credentials.json")
 
   private val fitbitClient by lazy {
-    val oAuthTokens = if (fitbitCredentialsFile.exists()) {
-      Json.decodeFromString<FitbitCredentials>(fitbitCredentialsFile.readText())
+    val oAuthTokens = if (fitbitCredentialsPath.exists()) {
+      Json.decodeFromString<FitbitCredentials>(fitbitCredentialsPath.readString())
     } else {
       null
     }?.let {
@@ -74,9 +80,9 @@ class Repository(
       ),
     ) { oAuthTokens ->
       logd("Got new OAuth tokens, saving them")
-      fitbitCredentialsFile.parentFile.mkdirs()
-      fitbitCredentialsFile.writeText(
-        Json.encodeToString(
+      fitbitCredentialsPath.parent!!.createDirectories()
+      fitbitCredentialsPath.writeString(
+        Json.encodeToString<FitbitCredentials>(
           FitbitCredentials(
             accessToken = oAuthTokens.accessToken,
             refreshToken = oAuthTokens.refreshToken,
@@ -84,22 +90,21 @@ class Repository(
         ),
       )
     }
-
   }
 
   fun loadCurrentWalkValues(): CurrentWalkValues {
-    if (!currentWalkFile.exists()) return CurrentWalkValues(
+    if (!currentWalkPath.exists()) return CurrentWalkValues(
       startedAt = Clock.System.now(),
       distanceMeters = 0.0,
       duration = Duration.ZERO,
     )
-    val jsonText = currentWalkFile.readText()
+    val jsonText = currentWalkPath.readString()
     return Json.decodeFromString<CurrentWalkValues>(jsonText)
   }
 
   fun saveCurrentWalkValues(startedAt: Instant, distanceKilometers: Double, duration: Duration) {
-    currentWalkFile.parentFile.mkdirs()
-    currentWalkFile.writeText(
+    currentWalkPath.parent!!.createDirectories()
+    currentWalkPath.writeString(
       Json.encodeToString(
         CurrentWalkValues(
           startedAt = startedAt,
@@ -111,13 +116,13 @@ class Repository(
   }
 
   fun clearCurrentWalkValues() {
-    if (currentWalkFile.exists()) {
-      currentWalkFile.delete()
+    if (currentWalkPath.exists()) {
+      currentWalkPath.delete()
     }
   }
 
   fun hasAuthorized(): Boolean {
-    return fitbitCredentialsFile.exists()
+    return fitbitCredentialsPath.exists()
   }
 
   private var oAuthAuthorizationUrlResult: OAuthAuthorizationUrlResult? = null
@@ -149,7 +154,6 @@ class Repository(
       distanceMeters = distanceMeters,
     )
   }
-
 }
 
 private fun today(): LocalDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date

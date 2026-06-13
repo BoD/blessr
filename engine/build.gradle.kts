@@ -8,6 +8,9 @@ plugins {
 
 kotlin {
   jvm()
+
+  macosArm64()
+
   sourceSets {
     commonMain {
       dependencies {
@@ -17,6 +20,7 @@ kotlin {
         implementation(libs.klibfitbit)
         implementation(libs.kotlinx.serialization.json)
         implementation(libs.kotlinx.datetime)
+        implementation(libs.kotlinx.io)
       }
     }
   }

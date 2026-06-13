@@ -11,8 +11,14 @@ kotlin {
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
     binaries {
       executable {
-        mainClass.set("org.jraf.blessr.cli.MainKt")
+        mainClass.set("MainKt")
       }
+    }
+  }
+
+  macosArm64 {
+    binaries {
+      executable()
     }
   }
 

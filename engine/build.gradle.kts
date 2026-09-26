@@ -17,7 +17,7 @@ kotlin {
         api(libs.kotlinx.coroutines.core)
         implementation(libs.kable.core)
         implementation(libs.klibnanolog)
-        implementation(libs.klibfitbit)
+        implementation(libs.klibghealth)
         implementation(libs.kotlinx.serialization.json)
         implementation(libs.kotlinx.datetime)
         implementation(libs.kotlinx.io)

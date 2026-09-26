@@ -49,12 +49,13 @@ private const val GATT_SERVICE_CYCLING_SPEED_AND_CADENCE = 0x1816
 private const val GATT_CHARACTERISTIC_CYCLING_SPEED_AND_CADENCE_MEASUREMENT = 0x2A5B
 
 class Blessr(
-  fitbitClientId: String,
+  googleHealthClientId: String,
+  googleHealthClientSecret: String,
   private val deviceName: String,
   private val circumferenceMeters: Double,
   private val onAuthorize: suspend (String) -> String,
 ) {
-  private val repository = Repository(fitbitClientId)
+  private val repository = Repository(googleHealthClientId = googleHealthClientId, googleHealthClientSecret = googleHealthClientSecret)
 
   suspend fun run() {
     if (!repository.hasAuthorized()) {

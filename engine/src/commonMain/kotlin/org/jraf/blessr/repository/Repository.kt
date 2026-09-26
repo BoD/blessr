@@ -23,13 +23,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-@file:OptIn(ExperimentalTime::class)
-
 package org.jraf.blessr.repository
 
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.atTime
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.io.files.Path
 import kotlinx.serialization.Serializable
@@ -40,28 +37,31 @@ import org.jraf.blessr.util.exists
 import org.jraf.blessr.util.getHomePath
 import org.jraf.blessr.util.readString
 import org.jraf.blessr.util.writeString
-import org.jraf.klibfitbit.client.FitbitClient
-import org.jraf.klibfitbit.client.configuration.ClientConfiguration
-import org.jraf.klibfitbit.client.configuration.HttpConfiguration
-import org.jraf.klibfitbit.client.configuration.HttpLoggingLevel
-import org.jraf.klibfitbit.client.configuration.OAuthTokens
-import org.jraf.klibfitbit.model.ActivityType
-import org.jraf.klibfitbit.model.OAuthAuthorizationUrlResult
+import org.jraf.klibghealth.client.GoogleHealthClient
+import org.jraf.klibghealth.client.GoogleHealthClient.Configuration
+import org.jraf.klibghealth.client.GoogleHealthClient.Configuration.Auth
+import org.jraf.klibghealth.client.GoogleHealthClient.Configuration.Auth.OAuthTokens
+import org.jraf.klibghealth.client.GoogleHealthClient.Configuration.Auth.Scope
+import org.jraf.klibghealth.client.GoogleHealthClient.Configuration.Http
+import org.jraf.klibghealth.model.DataPoint
+import org.jraf.klibghealth.model.ExerciseType
+import org.jraf.klibghealth.model.OAuthAuthorizationUrlAndCodeVerifier
 import org.jraf.klibnanolog.logd
+import org.jraf.klibnanolog.loge
 import kotlin.time.Clock
 import kotlin.time.Duration
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 class Repository(
-  private val fitbitClientId: String,
+  private val googleHealthClientId: String,
+  private val googleHealthClientSecret: String,
 ) {
   private val currentWalkPath = Path(getHomePath(), ".blessr", "current-walk.json")
-  private val fitbitCredentialsPath = Path(getHomePath(), ".blessr", "fitbit-credentials.json")
+  private val googleHealthCredentialsPath = Path(getHomePath(), ".blessr", "google-health-credentials.json")
 
-  private val fitbitClient by lazy {
-    val oAuthTokens = if (fitbitCredentialsPath.exists()) {
-      Json.decodeFromString<FitbitCredentials>(fitbitCredentialsPath.readString())
+  private val googleHealthClient by lazy {
+    val oAuthTokens = if (googleHealthCredentialsPath.exists()) {
+      Json.decodeFromString<GoogleHealthCredentials>(googleHealthCredentialsPath.readString())
     } else {
       null
     }?.let {
@@ -70,20 +70,23 @@ class Repository(
         refreshToken = it.refreshToken,
       )
     }
-    FitbitClient.newInstance(
-      ClientConfiguration(
-        clientId = fitbitClientId,
-        oAuthTokens = oAuthTokens,
-        httpConfiguration = HttpConfiguration(
-          loggingLevel = HttpLoggingLevel.ALL,
+    GoogleHealthClient(
+      Configuration(
+        auth = Auth(
+          clientId = googleHealthClientId,
+          clientSecret = googleHealthClientSecret,
+          oAuthTokens = oAuthTokens,
+        ),
+        http = Http(
+          loggingLevel = Http.HttpLoggingLevel.ALL,
         ),
       ),
     ) { oAuthTokens ->
       logd("Got new OAuth tokens, saving them")
-      fitbitCredentialsPath.parent!!.createDirectories()
-      fitbitCredentialsPath.writeString(
-        Json.encodeToString<FitbitCredentials>(
-          FitbitCredentials(
+      googleHealthCredentialsPath.parent!!.createDirectories()
+      googleHealthCredentialsPath.writeString(
+        Json.encodeToString<GoogleHealthCredentials>(
+          GoogleHealthCredentials(
             accessToken = oAuthTokens.accessToken,
             refreshToken = oAuthTokens.refreshToken,
           ),
@@ -122,37 +125,52 @@ class Repository(
   }
 
   fun hasAuthorized(): Boolean {
-    return fitbitCredentialsPath.exists()
+    return googleHealthCredentialsPath.exists()
   }
 
-  private var oAuthAuthorizationUrlResult: OAuthAuthorizationUrlResult? = null
+  private var oAuthAuthorizationUrlAndCodeVerifier: OAuthAuthorizationUrlAndCodeVerifier? = null
 
   fun getAuthorizationUrl(): String {
-    oAuthAuthorizationUrlResult = fitbitClient.oAuthCreateAuthorizationUrl(listOf("activity"))
-    return oAuthAuthorizationUrlResult!!.authorizeUrl
+    oAuthAuthorizationUrlAndCodeVerifier = googleHealthClient.oAuth.createAuthorizationUrl(
+      Scope.ActivityAndFitness.ReadOnly,
+      Scope.ActivityAndFitness.WriteOnly,
+      Scope.Sleep.ReadOnly,
+      Scope.Sleep.WriteOnly,
+    )
+    return oAuthAuthorizationUrlAndCodeVerifier!!.authorizeUrl
   }
 
   suspend fun handleAuthorizationCallback(callbackUrl: String) {
-    fitbitClient.oAuthFetchTokens(oAuthAuthorizationUrlResult!!, callbackUrl)
-    oAuthAuthorizationUrlResult = null
+    googleHealthClient.oAuth.fetchTokens(oAuthAuthorizationUrlAndCodeVerifier!!, callbackUrl)
+    oAuthAuthorizationUrlAndCodeVerifier = null
   }
 
   suspend fun loadTodayDailyValues(): DailyValues {
-    val activityList = fitbitClient.getActivityList(today().atTime(0, 0, 0))
+    val activityList = googleHealthClient.dataPoint.getDataPointList(today())
+      .getOrElse { throwable ->
+        loge(throwable, "Failed to load activities")
+        return DailyValues(
+          distanceKilometers = 0.0,
+          duration = Duration.ZERO,
+        )
+      }
+      .filterIsInstance<DataPoint.Exercise>()
     return DailyValues(
       distanceKilometers = activityList.sumOf { it.distanceMeters } / 1000.0,
-      duration = activityList.fold(Duration.ZERO) { acc, d -> acc + d.duration },
+      duration = activityList.fold(Duration.ZERO) { acc, d -> acc + d.activeDuration },
     )
   }
 
   suspend fun saveWalk(startedAt: Instant, distanceMeters: Double, duration: Duration) {
     logd("Saving activity: distanceMeters=$distanceMeters, duration=$duration")
-    fitbitClient.createActivity(
-      activityType = ActivityType.TreadmillWalk,
-      start = startedAt.toLocalDateTime(TimeZone.currentSystemDefault()),
-      duration = duration,
+    googleHealthClient.dataPoint.createDataPoint(
+      exerciseType = ExerciseType.TreadmillWalk,
       distanceMeters = distanceMeters,
-    )
+      startTime = startedAt,
+      activeDuration = duration,
+    ).getOrElse { throwable ->
+      loge(throwable, "Failed to save activity")
+    }
   }
 }
 
@@ -171,7 +189,7 @@ data class CurrentWalkValues(
 )
 
 @Serializable
-data class FitbitCredentials(
+data class GoogleHealthCredentials(
   val accessToken: String,
   val refreshToken: String,
 )

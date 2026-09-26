@@ -56,10 +56,17 @@ class Arguments : CliktCommand("blessr") {
     .enum<LogLevel> { it.name.lowercase() }
     .default(LogLevel.INFO)
 
-  val fitbitClientId: String by option(
+  val googleHealthClientId: String by option(
     "-f",
-    "--fitbit-client-id",
-    help = "Fitbit Client ID to use for OAuth2 authorization",
+    "--google-health-client-id",
+    help = "Google Health Client ID to use for OAuth2 authorization",
+  )
+    .required()
+
+  val googleHealthClientSecret: String by option(
+    "-s",
+    "--google-health-client-secret",
+    help = "Google Health Client Secret to use for OAuth2 authorization",
   )
     .required()
 

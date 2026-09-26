@@ -43,7 +43,8 @@ class Main {
     }
     logd("Hello, World!")
     Blessr(
-      fitbitClientId = arguments.fitbitClientId,
+      googleHealthClientId = arguments.googleHealthClientId,
+      googleHealthClientSecret = arguments.googleHealthClientSecret,
       deviceName = arguments.deviceName,
       circumferenceMeters = arguments.circumference,
     ) { authorizeUrl ->

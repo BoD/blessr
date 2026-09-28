@@ -6,7 +6,7 @@ kotlinx-datetime = "0.8.0"
 kotlinx-io = "0.9.1"
 kable = "0.45.0"
 klibnanolog = "1.2.1"
-klibghealth = "1.1.0"
+klibghealth = "1.1.1-SNAPSHOT"
 clikt = "5.1.0"
 
 [plugins]

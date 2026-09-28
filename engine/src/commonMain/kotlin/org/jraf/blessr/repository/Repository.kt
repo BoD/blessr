@@ -78,7 +78,7 @@ class Repository(
           oAuthTokens = oAuthTokens,
         ),
         http = Http(
-          loggingLevel = Http.HttpLoggingLevel.ALL,
+          loggingLevel = Http.LoggingLevel.ALL,
         ),
       ),
     ) { oAuthTokens ->
